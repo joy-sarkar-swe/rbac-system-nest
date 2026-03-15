@@ -1,0 +1,79 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "./generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id              String         @id @default(cuid())
+  email           String         @unique
+  password        String
+  name            String?
+  roleId          String
+  role            Role           @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  isSuspended     Boolean        @default(false)
+  isBanned        Boolean        @default(false)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  userPermissions UserPermission[]
+  auditLogs       AuditLog[]
+}
+
+model Role {
+  id              String           @id @default(cuid())
+  name            String           @unique // Admin, Manager, Agent, Customer
+  users           User[]
+  rolePermissions RolePermission[]
+}
+
+model Permission {
+  id              String           @id @default(cuid())
+  atom            String           @unique // dashboard.view, users.read, users.write, users.suspend, leads.manage, tasks.manage, reports.view, audit.read, settings.manage, customer.portal
+  description     String?
+  rolePermissions RolePermission[]
+  userPermissions UserPermission[]
+}
+
+model RolePermission {
+  id           String     @id @default(cuid())
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  @@unique([roleId, permissionId])
+  @@index([roleId, permissionId])
+}
+
+model UserPermission {
+  id           String     @id @default(cuid())
+  userId       String
+  permissionId String
+  grantedBy    String?    // who granted (for audit)
+  user         User       @relation(fields: [userId], references: [id])
+  permission   Permission @relation(fields: [permissionId], references: [id])
+  @@unique([userId, permissionId])
+  @@index([userId, permissionId])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String   // "permission.assign", "user.suspend" etc.
+  targetId  String?
+  details   Json?
+  ip        String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id])
+  @@index([userId])
+}
+
+model BlacklistedToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
