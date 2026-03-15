@@ -19,6 +19,13 @@ import config from './shared/config/app.config';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  // Enable cors
+  app.enableCors({
+    origin: '*',
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  });
+
   // Set global route prefix to "api"
   app.setGlobalPrefix('api');
 
