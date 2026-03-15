@@ -1,8 +1,7 @@
 /**
  * @fileoverview `ApiErrorResponses` — composite Swagger decorator for error responses.
- * Apply it on a controller method to document all relevant error status codes in one call.
  */
-import { applyDecorators } from '@nestjs/common';
+import { applyDecorators, Type } from '@nestjs/common';
 import {
   ApiBadRequestResponse,
   ApiConflictResponse,
@@ -21,58 +20,56 @@ import { CustomNotFoundDto } from '../dto/custom-not-found.dto';
 import { CustomUnauthorizedDto } from '../dto/custom-unauthorized.dto';
 import { ValidationErrorResponseDto } from '../dto/validation-error.dto';
 import { CustomUnsupportedMediaTypeDto } from '../dto/custom-unsupported-media-type.dto';
+import { CustomTooManyRequestsDto } from '../dto/custom-throttler.dto';
 
 /** Map of optional error DTOs. Omit a key to skip that status code in Swagger docs. */
 interface ErrorDtoMap {
   /** 400 Bad Request — validation errors. */
-  validation?: any;
+  validation?: Type<unknown> | boolean;
   /** 401 Unauthorized. */
-  unauthorized?: any;
+  unauthorized?: Type<unknown> | boolean;
   /** 403 Forbidden. */
-  forbidden?: any;
+  forbidden?: Type<unknown> | boolean;
   /** 404 Not Found. */
-  notFound?: any;
+  notFound?: Type<unknown> | boolean;
   /** 409 Conflict. */
-  conflict?: any;
+  conflict?: Type<unknown> | boolean;
   /** 413 Payload Too Large. */
-  payloadTooLarge?: any;
+  payloadTooLarge?: Type<unknown> | boolean;
   /** 415 Unsupported Media Type. */
-  unsupported?: any;
+  unsupported?: Type<unknown> | boolean;
   /** 500 Internal Server Error. */
-  internal?: any;
+  internal?: Type<unknown> | boolean;
   /** 429 Too Many Requests. */
-  throttle?: any;
+  throttle?: Type<unknown> | boolean;
 }
 
 /**
  * Composite decorator that registers multiple Swagger error-response schemas at once.
- *
- * @param dtos - Map of error types to their Swagger DTO classes.
- *
- * @example
- * ```ts
- * @ApiErrorResponses({ validation: MyValidationDto, internal: MyInternalDto })
- * ```
  */
 export function ApiErrorResponses(dtos: ErrorDtoMap) {
   const decorators: (MethodDecorator & ClassDecorator)[] = [];
 
-  if (dtos.validation)
-    decorators.push(ApiBadRequestResponse({ type: dtos.validation || ValidationErrorResponseDto }));
-  if (dtos.unauthorized)
-    decorators.push(ApiUnauthorizedResponse({ type: dtos.unauthorized || CustomUnauthorizedDto }));
-  if (dtos.forbidden)
-    decorators.push(ApiForbiddenResponse({ type: dtos.forbidden || CustomForbiddenDto }));
-  if (dtos.notFound)
-    decorators.push(ApiNotFoundResponse({ type: dtos.notFound || CustomNotFoundDto }));
-  if (dtos.conflict)
-    decorators.push(ApiConflictResponse({ type: dtos.conflict || CustomConflictDto }));
-  if (dtos.unsupported)
-    decorators.push(ApiUnsupportedMediaTypeResponse({ type: dtos.unsupported || CustomUnsupportedMediaTypeDto }));
-  if (dtos.internal)
-    decorators.push(ApiInternalServerErrorResponse({ type: dtos.internal || CustomInternalServerErrorDto }));
-  if (dtos.throttle)
-    decorators.push(ApiTooManyRequestsResponse({ type: dtos.throttle }));
+  const addError = (
+    dto: Type<unknown> | boolean | undefined,
+    defaultDto: Type<unknown>,
+    decorator: any,
+  ) => {
+    if (dto) {
+      const actualDto = typeof dto === 'function' ? dto : defaultDto;
+      decorators.push(decorator({ type: actualDto }));
+    }
+  };
+
+  addError(dtos.validation, ValidationErrorResponseDto, ApiBadRequestResponse);
+  addError(dtos.unauthorized, CustomUnauthorizedDto, ApiUnauthorizedResponse);
+  addError(dtos.forbidden, CustomForbiddenDto, ApiForbiddenResponse);
+  addError(dtos.notFound, CustomNotFoundDto, ApiNotFoundResponse);
+  addError(dtos.conflict, CustomConflictDto, ApiConflictResponse);
+  addError(dtos.unsupported, CustomUnsupportedMediaTypeDto, ApiUnsupportedMediaTypeResponse);
+  addError(dtos.internal, CustomInternalServerErrorDto, ApiInternalServerErrorResponse);
+  addError(dtos.throttle, CustomTooManyRequestsDto, ApiTooManyRequestsResponse);
+  addError(dtos.payloadTooLarge, CustomInternalServerErrorDto, ApiPayloadTooLargeResponse);
 
   return applyDecorators(...decorators);
 }
