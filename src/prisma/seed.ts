@@ -134,7 +134,6 @@ async function main() {
   const userByEmail = (email: string) => allUsers.find((u) => u.email === email)!;
 
   console.log('Granting ALL permissions to ALL Admins (explicit UserPermission overrides)...');
-  // This ensures EVERY admin has full access (role + userPermission) as requested
   const allAdmins = allUsers.filter(u => u.roleId === roles.admin.id);
   for (const admin of allAdmins) {
     for (const p of permissions) {
@@ -147,7 +146,6 @@ async function main() {
           },
         });
       } catch (e: any) {
-        // Ignore unique constraint if already exists (safe re-run)
         if (e.code !== 'P2002') throw e;
       }
     }
@@ -184,7 +182,39 @@ async function main() {
   }
 
   console.log('Seeding Audit Logs (Huge Volume)...');
-  // ... (same as your original 3500 logs block - unchanged)
+  const actions = [
+    'user.login',
+    'user.logout',
+    'data.view',
+    'permission.update',
+    'user.create',
+    'user.suspend',
+    'user.ban',
+    'settings.change',
+    'user.update',
+    'audit.read',
+    'reports.view',
+  ];
+  const auditLogs: { userId: string; action: string; targetId: string | null; details: object; ip: string }[] = [];
+
+  for (let i = 0; i < 3500; i++) {
+    const randomUser = allUsers[Math.floor(Math.random() * allUsers.length)];
+    const action = actions[Math.floor(Math.random() * actions.length)];
+    const needsTarget = action === 'user.suspend' || action === 'user.ban' || action === 'permission.update';
+    const targetUser = needsTarget ? allUsers[Math.floor(Math.random() * allUsers.length)] : null;
+    auditLogs.push({
+      userId: randomUser.id,
+      action,
+      targetId: targetUser ? targetUser.id : null,
+      details: {
+        timestamp: new Date(),
+        info: `Bulk action log #${i}`,
+        action,
+        metadata: { random_id: Math.random().toString(36).substring(7) },
+      },
+      ip: `192.168.${Math.floor(Math.random() * 256)}.${Math.floor(Math.random() * 256)}`,
+    });
+  }
 
   await prisma.auditLog.createMany({ data: auditLogs });
 
@@ -200,7 +230,7 @@ async function main() {
 main()
   .catch((e: any) => {
     if (e?.code === 'P1010') {
-      console.error('Database access denied (P1010). Check DB_URI...');
+      console.error('Database access denied (P1010). Check that DB_URI in your .env is correct...');
     } else {
       console.error(e);
     }
